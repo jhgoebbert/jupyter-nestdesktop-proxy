@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# you might need to modify your environment
+# before you can start 'nest-desktop'
+# Do it here.
+
+# example:
+# module purge
+# module load Stages/2023
+# module load GCCcore/.11.3.0
+# module load nest-desktop/3.2.0
+
+nest-desktop "$@"

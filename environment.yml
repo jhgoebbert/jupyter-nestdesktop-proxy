@@ -1,0 +1,13 @@
+# run: conda env create --file environment.yml
+name: jupyter-nestdesktop-proxy
+channels:
+  - conda-forge
+dependencies:
+  - jupyterlab=3
+  - jupyterlab_server
+  - jupyter-server-proxy>=3.1.0
+  - jupyter_conda
+  - pip
+  - pip:
+#      - nest-desktop>=3.2.0
+      - -r file:requirements.txt
