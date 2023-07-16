@@ -47,7 +47,7 @@ def setup_nestdesktop():
     """
 
     # launchers url file including url parameters
-    path_info = 'nestdesktop/index.html' + _nestdesktop_urlparams()
+    path_info = 'nestdesktop/index.html'
 
     # create command
     cmd = [
