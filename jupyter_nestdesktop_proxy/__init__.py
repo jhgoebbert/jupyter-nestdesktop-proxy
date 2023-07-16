@@ -52,8 +52,9 @@ def setup_nestdesktop():
     # create command
     cmd = [
         get_nestdesktop_executable('nest-desktop'),
-        '-h localhost',
-        '-p {port}',
+        'start',
+        '-h', 'localhost',
+        '-p', '{port}',
     ]
     logger.info('NEST Desktop command: ' + ' '.join(cmd))
 
