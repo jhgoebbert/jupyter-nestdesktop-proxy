@@ -1,13 +1,109 @@
 #!/bin/bash
 
-# you might need to modify your environment
-# before you can start 'nest-desktop'
-# Do it here.
+# extract file path
+extract_fpath() {
+    local arg="$1"
+    if [[ "$arg" == file:filename=* ]]; then
+        nestsrv_auth_file="${arg#file:filename=}"
+    fi
+}
 
-# example:
-# module purge
-# module load Stages/2023
-# module load GCCcore/.11.3.0
-# module load nest-desktop/3.2.0
+# Loop through the arguments 
+nestsrv_start=false
+nestsrv_port=""
+nestsrv_auth_file=""
+nestsrv_logfile="/tmp/nest-server-$USER-$$.log"
+app_args=()
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+	--srv-start)
+            shift
+            nestsrv_start=true
+            ;;
+        --srv-auth)
+            shift
+            extract_fpath "$1"
+	    shift
+            ;;
+	--srv-port)
+            shift
+	    nestsrv_port="$1"
+	    shift
+	    ;;
+        --srv-log)
+            shift
+	    nestsrv_logfile="$1"
+	    shift
+	    ;;
+	*)
+            app_args+=("$1")
+	    shift
+	    ;;
+    esac
+done
 
-nest-desktop "$@"
+# Clean up
+nestsrv_pid=""
+cleanup() {
+    if [ -n "$nestsrv_pid" ]; then
+        kill "$nestsrv_pid"
+        echo "NEST-Server with PID $nestsrv_pid killed."
+    fi
+}
+trap cleanup INT TERM
+
+# Load the modules
+<MODULES>
+
+# Start nest-server 
+if [ "$nestsrv_start" = true ]; then
+    echo "NEST-Desktop: starting a NEST-Server"
+
+    # Set log-file
+    if [ ! -z "$nestsrv_logfile" ]; then
+        echo "NEST-Server: log-file = $nestsrv_logfile"
+    else
+        echo "NEST-Server: log-file (generated) = $nestsrv_logfile" 
+        $nestsrv_logfile=/tmp/nest-server-$USER-$$.log
+    fi
+    export NEST_SERVER_LOGFILE=$nestsrv_logfile
+    touch $NEST_SERVER_LOGFILE
+    chmod 600 $NEST_SERVER_LOGFILE
+
+    # Set port
+    if [ ! -z "$nestsrv_port" ]; then
+        echo "NEST-Server: port = $nestsrv_port"
+        export NEST_SERVER_PORT=$nestsrv_port
+    fi
+
+    # Set token
+    if [ ! -z "$nestsrv_auth_file" ]; then
+        echo "NEST-Server: auth-file = $nestsrv_auth_file"
+
+	export NEST_SERVER_DISABLE_AUTH=0
+        if [ -e "$nestsrv_auth_file" ] && [ -r "$nestsrv_auth_file" ]; then
+            export NEST_SERVER_ENABLE_EXEC_CALL=1
+            export NEST_SERVER_DISABLE_RESTRICTION=1
+            export NEST_SERVER_CORS_ORIGINS="http://localhost:*"
+            export NEST_SERVER_ACCESS_TOKEN=$(cat $nestsrv_auth_file)
+	else
+            echo "NEST-Server: ERROR auth-file not readable. The server will NOT start."
+            nestsrv_start=false
+        fi
+    fi
+
+    # Start NEST-Server
+    if [ "$nestsrv_start" = true ]; then
+        echo "NEST-Server: cmd = nest-server start -o > $NEST_SERVER_LOGFILE 2>&1"
+        nest-server start -o >> $NEST_SERVER_LOGFILE 2>&1 & 
+        nestsrv_pid="$!"
+    fi
+fi
+
+# Start NEST-Desktop
+echo "NEST-Desktop: cmd = nest-desktop ${app_args[@]}"
+nest-desktop "${app_args[@]}"
+
+# Cleanup on finish
+cleanup
