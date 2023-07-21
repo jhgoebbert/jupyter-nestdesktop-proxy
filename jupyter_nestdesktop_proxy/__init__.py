@@ -31,11 +31,20 @@ def get_nestdesktop_executable(prog):
 
     raise FileNotFoundError(f'Could not find {prog} in PATH')
 
+
 def _nestdesktop_urlparams():
 
-    url_params = '?' + '&'.join([
-        'token=' + _nestsrv_token,
-    ])
+    nestsrv_urlparam = None
+    if _nestsrv_url:
+        nestsrv_urlparam = 'nest_server_url=' + _nestsrv_url
+    nestsrv_tokenparam = None
+    if _nestsrv_token:
+        nestsrv_tokenparam = 'nest_server_access_token=' + _nestsrv_token
+
+    url_params = ''
+    url_paramlist = [param for param in (nestsrv_urlparam, nestsrv_tokenparam) if param is not None]
+    if url_paramlist:
+        url_params = '?' + '&'.join(url_paramlist)
 
     return url_params
 
@@ -53,13 +62,22 @@ def setup_nestdesktop():
     """ Setup commands and and return a dictionary compatible
         with jupyter-server-proxy.
     """
+    from re import sub
     from tempfile import mkstemp
     from random import choice
     from string import ascii_letters, digits
+    from urllib.parse import urlparse
 
     global _nestsrv_url, _nestsrv_token
 
-    # password generator
+    # check for a free port
+    import socket
+    s=socket.socket()
+    s.bind(("", 0))
+    nestsrv_port = s.getsockname()[1]
+    s.close()
+
+    # token generator
     def _get_random_alphanumeric_string(length):
         letters_and_digits = ascii_letters + digits
         return (''.join((choice(letters_and_digits) for i in range(length))))
@@ -76,16 +94,24 @@ def setup_nestdesktop():
         logger.error("Passwd generation in temp file FAILED")
         raise FileNotFoundError("Passwd generation in temp file FAILED")
 
+    # generate nest-server url
+    jhub_apiurl = os.environ.get('JUPYTERHUB_API_URL')
+    jlab_urlprefix = os.environ.get('JUPYTERHUB_SERVICE_PREFIX')
+    if jhub_apiurl and jlab_urlprefix:
+        parsed_url = urlparse(jhub_apiurl)
+        _nestsrv_url = (
+            f"{parsed_url.scheme}://{parsed_url.netloc}" +
+            sub(r'/+', '/', '/'.join([
+                jlab_urlprefix,
+                'proxy',
+                str(nestsrv_port)
+            ]))
+        )
+    else:
+        _nestsrv_url = 'http://localhost:' + str(nestsrv_port)
+ 
     # launchers url file including url parameters
     path_info = 'nestdesktop/index.html' + _nestdesktop_urlparams()
-
-    # check for a free port
-    #import socket
-    #s=socket.socket()
-    #s.bind(("", 0))
-    #nestsrv_port = s.getsockname()[1]
-    #s.close()
-    nestsrv_port = 52425
 
     # create command
     cmd = [
