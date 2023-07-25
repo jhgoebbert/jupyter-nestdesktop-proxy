@@ -95,13 +95,13 @@ def setup_nestdesktop():
         raise FileNotFoundError("Passwd generation in temp file FAILED")
 
     # generate nest-server url
-    jhub_apiurl = os.environ.get('JUPYTERHUB_API_URL')
+    jhub_domain = os.environ.get('JUPYTERHUB_DOMAIN')
     jlab_urlprefix = os.environ.get('JUPYTERHUB_SERVICE_PREFIX')
-    if jhub_apiurl and jlab_urlprefix:
-        parsed_url = urlparse(jhub_apiurl)
+    if jhub_domain and jlab_urlprefix:
         _nestsrv_url = (
-            f"{parsed_url.scheme}://{parsed_url.netloc}" +
+            "https://" +
             sub(r'/+', '/', '/'.join([
+                jhub_domain,
                 jlab_urlprefix,
                 'proxy',
                 str(nestsrv_port)
